@@ -28,7 +28,7 @@ def dataframes():
     })
 
     # Rebalance dataframe
-    df_rebalances = pd.DataFrame(columns = ['timestamp', 'sent', 'received', 'price', 'fee'])
+    df_rebalances = pd.DataFrame(columns = ['timestamp', 'sent', 'recieved', 'price', 'fee'])
 
     return df_info, df_inventory, df_rebalances
 
