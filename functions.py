@@ -10,6 +10,7 @@
 """
 # ----- Generic libraries
 import pandas as pd
+import numpy as np
 
 # ----- Useful dataframes
 def dataframes():
@@ -118,3 +119,47 @@ def inventory(index_inventory,df_trades, df_inventory):
         df_inventory.at[index_inventory, 'timestamp'] = df_trades['timestamp'].iloc[-1]
         df_inventory.at[index_inventory, 'base (BTC)'] = df_inventory.at[index_inventory-1, 'base (BTC)'] - df_trades['filled_amount'].iloc[-1]
         df_inventory.at[index_inventory, 'quote (USDT)'] = df_inventory.at[index_inventory-1, 'quote (USDT)'] + df_trades['filled_amount'].iloc[-1]*df_trades['price'].iloc[-1]
+
+# ---- Rebalance
+def rebalance(trade_fee, df_trades, df_inventory, df_rebalance, rebalance_index, inventory_index):
+    
+    decimals_usdt=10e18
+    decimals_btc=10e8
+    decimals_btcusdt=int(decimals_btc/decimals_usdt)
+    decimals_usdtbtc=int(decimals_usdt/decimals_btc)
+    initial_base = df_inventory.at[0, 'base (BTC)']
+    last_base = df_inventory.at[inventory_index - 1, 'base (BTC)']
+    initial_quote = df_inventory.at[0, 'quote (USDT)']
+    last_quote = df_inventory.at[inventory_index - 1, 'quote (USDT)']
+
+  
+
+    if df_inventory['base (BTC)'].iloc[-1] < 4.9 :
+        swap_price = decimals_usdtbtc/(((int(np.sqrt(df_trades['price'].iloc[-1])*96)*2)/(2*96))*2)
+        swap_amount = initial_base - last_base
+        swap_fee = trade_fee * decimals_usdtbtc/swap_price * swap_amount
+
+        df_rebalance.at[rebalance_index,'timestamp'] = df_inventory['timestamp'].iloc[-1]
+        df_rebalance.at[rebalance_index,'sent'] = 'USDT'
+        df_rebalance.at[rebalance_index,'recieved'] = 'BTC'
+        df_rebalance.at[rebalance_index,'price'] = swap_price
+        df_rebalance.at[rebalance_index,'fee'] = swap_fee
+
+        df_inventory.at[inventory_index, 'timestamp'] = df_inventory.at[inventory_index - 1, 'timestamp']
+        df_inventory.at[inventory_index, 'base (BTC)'] = last_base  + decimals_usdtbtc/(int(swap_price - swap_fee)/(2*96))*2 * swap_amount
+        df_inventory.at[inventory_index, 'quote (USDT)'] = last_quote - swap_amount
+
+    elif df_inventory['quote (USDT)'].iloc[-1] < 499980:
+        swap_price = decimals_usdtbtc/(((int(np.sqrt(df_trades['price'].iloc[-1])*96)*2)/(2*96))*2)
+        swap_amount = initial_quote - last_quote
+        swap_fee = trade_fee * decimals_btcusdt/swap_price * swap_amount
+
+        df_rebalance.at[rebalance_index,'timestamp'] = df_inventory['timestamp'].iloc[-1]
+        df_rebalance.at[rebalance_index,'sent'] = 'BTC'
+        df_rebalance.at[rebalance_index,'recieved'] = 'USDT'
+        df_rebalance.at[rebalance_index,'price'] = swap_price
+        df_rebalance.at[rebalance_index,'fee'] = trade_fee*swap_price
+
+        df_inventory.at[inventory_index, 'timestamp'] = df_inventory.at[inventory_index - 1, 'timestamp']
+        df_inventory.at[inventory_index, 'base (BTC)'] = last_base - swap_amount
+        df_inventory.at[inventory_index, 'quote (USDT)'] = decimals_usdtbtc/(int(swap_price)/(2*96))*2 * swap_amount + last_quote

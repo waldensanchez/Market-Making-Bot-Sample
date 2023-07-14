@@ -21,6 +21,21 @@ platform_fee = .000025
 # Initial Conditions Data Frames
 df_info, df_inventory, df_rebalance = fn.dataframes()
 
+# ----- Market information
+df_bitfinex_tob = pd.DataFrame(data.read_file(file_name = "orderbooks_05jul21.json", folder_route = "files/")['bitfinex']).transpose().reset_index()
+df_bitfinex_tob['index'] = pd.to_datetime(df_bitfinex_tob['index'])
+df_bitfinex_tob = df_bitfinex_tob.set_index('index').resample('S').last().ffill()
+for column in df_bitfinex_tob.columns:
+    df_bitfinex_tob[column] = df_bitfinex_tob[column].apply(lambda x: x['0'])
+df_bitfinex_tob = df_bitfinex_tob.reset_index().rename(columns = {'index':'timestamp'})
+
+# SLA Conditions
+contracted_volume = .0001
+platform_fee = .000025
+
+# Initial Conditions Data Frames
+df_info, df_inventory, df_rebalance = fn.dataframes()
+
 # Initial Order
 df_orders = pd.DataFrame([
     [df_bitfinex_tob.iloc[0]['timestamp'], df_bitfinex_tob.iloc[0]['timestamp']],
@@ -62,12 +77,13 @@ for side_filled in ['ask','bid']:
                 index_rebalance = 0
             else:
                 index_rebalance = df_rebalance.index[-1] + 1
-            rebalance(
+            fn.rebalance(
                 trade_fee = platform_fee,
                 rebalance_index = index_rebalance,
                 df_inventory = df_inventory, 
                 df_rebalance = df_rebalance,
-                df_trades = df_trades
+                df_trades = df_trades,
+                inventory_index = df_inventory.index[-1] + 1
                 )
             # ----
 
@@ -129,12 +145,13 @@ for period in range(2,len(df_bitfinex_tob)):
                 index_rebalance = 0
             else:
                 index_rebalance = df_rebalance.index[-1] + 1
-            rebalance(
+            fn.rebalance(
                 trade_fee = platform_fee,
                 rebalance_index = index_rebalance,
                 df_inventory = df_inventory, 
                 df_rebalance = df_rebalance,
-                df_trades = df_trades
+                df_trades = df_trades,
+                inventory_index = df_inventory.index[-1] + 1
                 )
             # ----
 
